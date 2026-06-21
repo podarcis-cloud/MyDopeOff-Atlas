@@ -1,0 +1,51 @@
+name: Déployer MyDope Off
+
+# Tu ne remplaces QUE mydopeoff-site.zip à chaque mise à jour.
+# Prérequis (une seule fois) : Settings → Pages → Build and deployment → Source : GitHub Actions
+# Emplacement du fichier dans le dépôt : .github/workflows/deploy.yml
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'mydopeoff-site.zip', '.github/workflows/deploy.yml' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+      - name: Dézipper le site dans un dossier propre
+        run: |
+          rm -rf _site && mkdir -p _site
+          unzip -o mydopeoff-site.zip -d _site
+          if [ "$(ls -1 _site | wc -l)" = "1" ] && [ -d "_site/$(ls -1 _site)" ]; then
+            inner="_site/$(ls -1 _site)"
+            mv "$inner"/* "$inner"/.[!.]* _site/ 2>/dev/null || true
+            rmdir "$inner" 2>/dev/null || true
+          fi
+          touch _site/.nojekyll
+      - name: Préparer l'artefact Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Déployer sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
